@@ -15,12 +15,29 @@ function App() {
     if (!navigator.geolocation) return;
     setLoadingLocation(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation((prev) => ({
-          ...prev,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }));
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        // Try to get a human-readable address using OpenStreetMap Nominatim
+        let address = '';
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            address = data.display_name || '';
+          }
+        } catch (e) {
+          // Ignore reverse geocoding errors; we'll still keep lat/lng
+        }
+
+        setLocation({
+          lat,
+          lng,
+          address,
+        });
         setLoadingLocation(false);
       },
       () => {
@@ -185,8 +202,11 @@ function App() {
                     <span>Detecting your location...</span>
                   ) : location.lat && location.lng ? (
                     <span>
-                      Lat: {location.lat.toFixed?.(4) || location.lat}, Lng:{' '}
-                      {location.lng.toFixed?.(4) || location.lng}
+                      {location.address
+                        ? location.address
+                        : `Lat: ${location.lat.toFixed?.(4) || location.lat}, Lng: ${
+                            location.lng.toFixed?.(4) || location.lng
+                          }`}
                     </span>
                   ) : (
                     <span className="warning">
@@ -250,22 +270,37 @@ function App() {
                         <p>{r.description}</p>
                         <p className="meta">
                           <span>Status: {r.status}</span>
-                          <span>
-                            Reported:{' '}
-                            {new Date(r.createdAt).toLocaleString(undefined, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
-                          </span>
+                          {r.createdAt && (
+                            <span>
+                              Reported:{' '}
+                              {new Date(r.createdAt).toLocaleString(undefined, {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </span>
+                          )}
                         </p>
                         <p className="meta">
                           <span>Phone: {r.userPhone}</span>
                           {r.location && (
-                            <span>
-                              Location:{' '}
-                              {r.location.address ||
-                                `${r.location.lat?.toFixed?.(4)}, ${r.location.lng?.toFixed?.(4)}`}
-                            </span>
+                            <>
+                              <span>
+                                Location:{' '}
+                                {r.location.address ||
+                                  `${r.location.lat?.toFixed?.(4)}, ${r.location.lng?.toFixed?.(
+                                    4
+                                  )}`}
+                              </span>
+                              {r.location.lat && r.location.lng && (
+                                <a
+                                  href={`https://www.google.com/maps?q=${r.location.lat},${r.location.lng}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open in Google Maps
+                                </a>
+                              )}
+                            </>
                           )}
                         </p>
                       </div>
