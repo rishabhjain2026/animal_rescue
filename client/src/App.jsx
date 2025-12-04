@@ -23,11 +23,29 @@ function App() {
         let address = '';
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`
           );
           if (res.ok) {
             const data = await res.json();
-            address = data.display_name || '';
+            if (data.address) {
+              const {
+                neighbourhood,
+                suburb,
+                city,
+                town,
+                village,
+                state,
+                country,
+              } = data.address;
+              // Build a clearer, shorter label like "Sector 62, Noida, Uttar Pradesh"
+              const cityLike = city || town || village;
+              address = [neighbourhood || suburb, cityLike, state || country]
+                .filter(Boolean)
+                .join(', ');
+            }
+            if (!address) {
+              address = data.display_name || '';
+            }
           }
         } catch (e) {
           // Ignore reverse geocoding errors; we'll still keep lat/lng
