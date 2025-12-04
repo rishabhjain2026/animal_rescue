@@ -175,6 +175,12 @@ function App() {
           >
             I am a rescuer
           </button>
+          <button
+            className={activeTab === 'contact' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('contact')}
+          >
+            Contact support
+          </button>
         </div>
       </header>
 
@@ -238,7 +244,7 @@ function App() {
               </button>
             </form>
           </section>
-        ) : (
+        ) : activeTab === 'rescuer' ? (
           <section className="rescuer-layout">
             <div className="card">
               <h2>Join as a rescuer</h2>
@@ -348,6 +354,57 @@ function App() {
                   ))}
                 </div>
               )}
+            </div>
+          </section>
+        ) : (
+          <section className="card">
+            <h2>Contact our support team</h2>
+            <p className="subtitle">
+              Reach out to any of the coordinators below for emergency help, partnerships, or
+              general questions.
+            </p>
+            <div className="support-grid">
+              <div className="support-card">
+                
+                <h3>Rishabh jain</h3>
+                <p className="support-role">Rescue Operations Lead</p>
+                <p className="support-line">
+                  Phone: <a href="tel:+911234567890">+91 8982697532</a>
+                </p>
+                <p className="support-line">
+                  Email: <a href="mailto:rishabh26bc050@satiengg.in">rishabh26bc050@satiengg.in</a>
+                </p>
+              </div>
+              <div className="support-card">
+                <h3>prince gata</h3>
+                <p className="support-role">Volunteer Coordinator</p>
+                <p className="support-line">
+                  Phone: <a href="tel:+919876543210">+91 98765 43210</a>
+                </p>
+                <p className="support-line">
+                  Email: <a href="mailto:arjun@animalrescue.org">arjun@animalrescue.org</a>
+                </p>
+              </div>
+              <div className="support-card">
+                <h3>Ashmita Bathre</h3>
+                <p className="support-role">Medical Support</p>
+                <p className="support-line">
+                  Phone: <a href="tel:+911112223334">+91 11122 23334</a>
+                </p>
+                <p className="support-line">
+                  Email: <a href="mailto:neha@animalrescue.org">neha@animalrescue.org</a>
+                </p>
+              </div>
+              <div className="support-card">
+                <h3>Alka poddar</h3>
+                <p className="support-role">Partner NGOs & Support</p>
+                <p className="support-line">
+                  Phone: <a href="tel:+919900112233">+91 99001 12233</a>
+                </p>
+                <p className="support-line">
+                  Email: <a href="mailto:rahul@animalrescue.org">rahul@animalrescue.org</a>
+                </p>
+              </div>
             </div>
           </section>
         )}

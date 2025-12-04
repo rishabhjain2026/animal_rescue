@@ -257,6 +257,45 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.support-grid {
+  margin-top: 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.support-card {
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  background: #f8fafc;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+}
+
+.support-card h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.15rem;
+}
+
+.support-role {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.support-line {
+  font-size: 0.9rem;
+  margin: 0.1rem 0;
+}
+
+.support-line a {
+  color: #0ea5e9;
+  text-decoration: none;
+}
+
+.support-line a:hover {
+  text-decoration: underline;
+}
+
 .footer {
   padding: 1rem 1.5rem 1.4rem;
   text-align: center;
