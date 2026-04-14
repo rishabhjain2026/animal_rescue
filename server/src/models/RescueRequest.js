@@ -12,11 +12,13 @@ const rescueRequestSchema = new mongoose.Schema(
     },
     userPhone: { type: String, required: true },
     userEmail: { type: String },
+    equipmentSuggestion: { type: String },
     status: {
       type: String,
       enum: ['pending', 'accepted', 'rescued'],
       default: 'pending',
     },
+    rescuerCode: { type: String },
     acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Rescuer' },
   },
   { timestamps: true }

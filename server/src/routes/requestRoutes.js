@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const mongoose = require('mongoose');
 const RescueRequest = require('../models/RescueRequest');
 const Rescuer = require('../models/Rescuer');
 const { sendEmail } = require('../utils/mailer');
@@ -20,16 +21,37 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+const inferEquipmentSuggestion = ({ petType = '', description = '' }) => {
+  const text = `${petType} ${description}`.toLowerCase();
+  const items = ['Gloves', 'Pet first-aid kit', 'Drinking water'];
+
+  if (text.includes('dog')) items.push('Muzzle', 'Leash');
+  if (text.includes('cat')) items.push('Cat carrier', 'Towel');
+  if (text.includes('bird')) items.push('Ventilated box');
+  if (text.includes('snake')) items.push('Snake hook', 'Protective boots');
+  if (text.includes('bleed') || text.includes('injur')) items.push('Sterile gauze', 'Bandage roll');
+  if (text.includes('aggressive') || text.includes('attack')) items.push('Catch pole');
+  if (text.includes('night') || text.includes('dark')) items.push('Flashlight');
+
+  return [...new Set(items)].join(', ');
+};
+
 // Create a new rescue request (user flow)
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     const { petType, description, lat, lng, address, userPhone, userEmail } = req.body;
+    const normalizedPhone = String(userPhone || '').replace(/[^\d+]/g, '');
+
+    if (!/^\+?\d{10,15}$/.test(normalizedPhone)) {
+      return res.status(400).json({ message: 'Please enter a valid phone number.' });
+    }
 
     const request = await RescueRequest.create({
       petType,
       description,
-      userPhone,
+      userPhone: normalizedPhone,
       userEmail,
+      equipmentSuggestion: inferEquipmentSuggestion({ petType, description }),
       location: {
         lat: Number(lat),
         lng: Number(lng),
@@ -77,13 +99,19 @@ router.get('/', async (req, res) => {
 // Rescuer accepts a request
 router.post('/:id/accept', async (req, res) => {
   try {
-    const { rescuerId } = req.body;
+    const rescuerId = String(req.body.rescuerId || '').trim();
     const request = await RescueRequest.findById(req.params.id);
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
+    if (!rescuerId) {
+      return res.status(400).json({ message: 'Rescuer ID is required' });
+    }
     request.status = 'accepted';
-    request.acceptedBy = rescuerId;
+    request.rescuerCode = rescuerId;
+    if (mongoose.isValidObjectId(rescuerId)) {
+      request.acceptedBy = rescuerId;
+    }
     await request.save();
 
     // Notify user if email is present
