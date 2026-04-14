@@ -12,6 +12,8 @@ const rescueRequestSchema = new mongoose.Schema(
     },
     userPhone: { type: String, required: true },
     userEmail: { type: String },
+    mlCaption: { type: String },
+    diseasePrediction: { type: String },
     equipmentSuggestion: { type: String },
     status: {
       type: String,

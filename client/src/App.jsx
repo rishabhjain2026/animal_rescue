@@ -18,21 +18,21 @@ const supportTeam = [
     name: "Prince Gaate",
     role: "Volunteer Coordinator",
     phone: "+91 98765 43210",
-    email: "arjun@animalrescue.org",
+    email: "prince26bc046@satiengg.in",
     image: "/images/prince.jpg",
   },
   {
     name: "Ashmita Bathre",
     role: "Medical Support",
     phone: "+91 11122 23334",
-    email: "neha@animalrescue.org",
+    email: "ashmita26bc015@satiengg.in",
     image: "/images/ashmita.jpg",
   },
   {
     name: "Alka Poddar",
     role: "Partner NGOs & Support",
     phone: "+91 99001 12233",
-    email: "rahul@animalrescue.org",
+    email: "alka26bc010@satiengg.in",
     image: "/images/alka.jpg",
   },
 ];
@@ -436,6 +436,11 @@ function App() {
                         {r.equipmentSuggestion && (
                           <p className="meta equipment-note">
                             Suggested rescue equipment: {r.equipmentSuggestion}
+                          </p>
+                        )}
+                        {r.diseasePrediction && (
+                          <p className="meta equipment-note">
+                            ML disease estimate: {r.diseasePrediction}
                           </p>
                         )}
                       </div>

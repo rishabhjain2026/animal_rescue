@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs/promises');
 const mongoose = require('mongoose');
 const RescueRequest = require('../models/RescueRequest');
 const Rescuer = require('../models/Rescuer');
@@ -21,19 +22,81 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-const inferEquipmentSuggestion = ({ petType = '', description = '' }) => {
-  const text = `${petType} ${description}`.toLowerCase();
+const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || 'Salesforce/blip-image-captioning-base';
+
+const getImageCaptionFromHF = async (imagePath) => {
+  const token = process.env.HF_API_TOKEN;
+  if (!token || !imagePath) return '';
+
+  try {
+    const imageBuffer = await fs.readFile(imagePath);
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${HF_IMAGE_MODEL}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/octet-stream',
+        },
+        body: imageBuffer,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('HF inference error:', errorText);
+      return '';
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      return String(data[0].generated_text).trim();
+    }
+    if (Array.isArray(data) && data[0]?.label) {
+      return String(data[0].label).trim();
+    }
+    if (data?.generated_text) {
+      return String(data.generated_text).trim();
+    }
+    return '';
+  } catch (err) {
+    console.error('HF caption fetch failed:', err.message);
+    return '';
+  }
+};
+
+const inferMedicalInsights = ({ petType = '', description = '', caption = '' }) => {
+  const text = `${petType} ${description} ${caption}`.toLowerCase();
   const items = ['Gloves', 'Pet first-aid kit', 'Drinking water'];
+  let disease = 'General trauma/stress (needs physical check by veterinarian)';
 
   if (text.includes('dog')) items.push('Muzzle', 'Leash');
   if (text.includes('cat')) items.push('Cat carrier', 'Towel');
   if (text.includes('bird')) items.push('Ventilated box');
   if (text.includes('snake')) items.push('Snake hook', 'Protective boots');
-  if (text.includes('bleed') || text.includes('injur')) items.push('Sterile gauze', 'Bandage roll');
+  if (text.includes('bleed') || text.includes('injur') || text.includes('wound')) {
+    disease = 'Open wound / bleeding injury';
+    items.push('Sterile gauze', 'Bandage roll', 'Antiseptic solution');
+  }
+  if (text.includes('skin') || text.includes('mange') || text.includes('hair loss') || text.includes('rash')) {
+    disease = 'Possible skin infection (mange / dermatitis)';
+    items.push('Disposable apron', 'Antifungal shampoo', 'Isolation crate');
+  }
+  if (text.includes('limp') || text.includes('fracture') || text.includes('broken')) {
+    disease = 'Possible bone or limb injury';
+    items.push('Splint support', 'Soft stretcher');
+  }
+  if (text.includes('foam') || text.includes('saliva') || text.includes('rabies')) {
+    disease = 'Possible rabies symptoms (high-risk case)';
+    items.push('Face shield', 'Bite-resistant gloves', 'Capture net');
+  }
   if (text.includes('aggressive') || text.includes('attack')) items.push('Catch pole');
   if (text.includes('night') || text.includes('dark')) items.push('Flashlight');
 
-  return [...new Set(items)].join(', ');
+  return {
+    diseasePrediction: disease,
+    equipmentSuggestion: [...new Set(items)].join(', '),
+  };
 };
 
 // Create a new rescue request (user flow)
@@ -46,12 +109,18 @@ router.post('/', upload.single('image'), async (req, res) => {
       return res.status(400).json({ message: 'Please enter a valid phone number.' });
     }
 
+    const imagePath = req.file ? path.join(__dirname, '../../uploads', req.file.filename) : '';
+    const mlCaption = await getImageCaptionFromHF(imagePath);
+    const insights = inferMedicalInsights({ petType, description, caption: mlCaption });
+
     const request = await RescueRequest.create({
       petType,
       description,
       userPhone: normalizedPhone,
       userEmail,
-      equipmentSuggestion: inferEquipmentSuggestion({ petType, description }),
+      mlCaption,
+      diseasePrediction: insights.diseasePrediction,
+      equipmentSuggestion: insights.equipmentSuggestion,
       location: {
         lat: Number(lat),
         lng: Number(lng),
@@ -71,6 +140,8 @@ router.post('/', upload.single('image'), async (req, res) => {
       <p><strong>Description:</strong> ${description}</p>
       <p><strong>Location:</strong> ${address || `${lat}, ${lng}`}</p>
       <p><strong>Contact Phone:</strong> ${userPhone}</p>
+      <p><strong>ML disease estimate:</strong> ${insights.diseasePrediction}</p>
+      <p><strong>Suggested equipment:</strong> ${insights.equipmentSuggestion}</p>
       <p>You can accept this rescue from your rescuer dashboard.</p>
     `;
 
