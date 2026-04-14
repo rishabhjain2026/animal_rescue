@@ -8,7 +8,7 @@ const STATIC_RESCUER_ID = "12345";
 const supportTeam = [
   {
     name: "Rishabh Jain",
-    role: "Rescue Operations Lead",
+    role: "worker at a NGO",
     phone: "+91 89826 97532",
     email: "rishabh26bc050@satiengg.in",
     image:
