@@ -19,21 +19,21 @@ const supportTeam = [
     role: "Volunteer Coordinator",
     phone: "+91 98765 43210",
     email: "prince26bc046@satiengg.in",
-    image: "/images/prince.jpg",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s",
   },
   {
     name: "Ashmita Bathre",
     role: "Medical Support",
     phone: "+91 11122 23334",
     email: "ashmita26bc015@satiengg.in",
-    image: "/images/ashmita.jpg",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s",
   },
   {
     name: "Alka Poddar",
     role: "Partner NGOs & Support",
     phone: "+91 99001 12233",
     email: "alka26bc010@satiengg.in",
-    image: "/images/alka.jpg",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s",
   },
 ];
 
@@ -61,9 +61,12 @@ const governmentHelp = [
 ];
 
 const rescuedAnimals = [
-  { name: "Street Puppy - Bruno", image: "/images/rishabh.jpg" },
-  { name: "Injured Cat - Luna", image: "/images/ashmita.jpg" },
-  { name: "Rescued Bird - Coco", image: "/images/prince.jpg" },
+  { name: "Street Puppy - Bruno", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
+  { name: "Injured Cat - Luna", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
+  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
+  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
+  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
+  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
 ];
 
 const isValidPhone = (phone) => /^\+?\d{10,15}$/.test(phone.replace(/[^\d+]/g, ""));
