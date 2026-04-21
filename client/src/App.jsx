@@ -64,9 +64,6 @@ const rescuedAnimals = [
   { name: "Street Puppy - Bruno", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
   { name: "Injured Cat - Luna", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
   { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
-  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
-  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
-  { name: "Rescued Bird - Coco", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmMDGg7R6MmM2jaF1p9m-xg8Qw7-KxQHVlQQ&s" },
 ];
 
 const isValidPhone = (phone) => /^\+?\d{10,15}$/.test(phone.replace(/[^\d+]/g, ""));
@@ -115,7 +112,7 @@ function App() {
             }
           }
         } catch (e) {
-          // Ignore reverse geocoding errors; we'll still keep lat/lng
+        
         }
 
         setLocation({
