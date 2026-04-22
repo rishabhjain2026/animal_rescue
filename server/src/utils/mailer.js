@@ -10,13 +10,14 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (to, subject, html, options = {}) => {
   if (!to) return;
   const mailOptions = {
     from: `"Animal Rescue" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
     to,
     subject,
     html,
+    attachments: options.attachments || [],
   };
   await transporter.sendMail(mailOptions);
 };

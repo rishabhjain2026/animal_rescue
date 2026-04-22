@@ -22,6 +22,13 @@ const rescueRequestSchema = new mongoose.Schema(
     },
     rescuerCode: { type: String },
     acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Rescuer' },
+    tipPaymentStatus: {
+      type: String,
+      enum: ['not_initiated', 'pending', 'paid'],
+      default: 'not_initiated',
+    },
+    tipCheckoutSessionId: { type: String },
+    tipAmount: { type: Number, default: 500 },
   },
   { timestamps: true }
 );

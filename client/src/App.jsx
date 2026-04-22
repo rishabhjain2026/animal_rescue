@@ -69,7 +69,7 @@ const rescuedAnimals = [
 const isValidPhone = (phone) => /^\+?\d{10,15}$/.test(phone.replace(/[^\d+]/g, ""));
 
 function App() {
-  const [activeTab, setActiveTab] = useState("user");
+  const [activeTab, setActiveTab] = useState("landing");
   const [location, setLocation] = useState(initialLocation);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -220,266 +220,362 @@ function App() {
     }
   };
 
+  const handlePayRescuer = async (id) => {
+    try {
+      const currentUrl = window.location.origin + window.location.pathname;
+      const successUrl = `${currentUrl}?tipSuccess=1&requestId=${id}`;
+      const cancelUrl = `${currentUrl}?tipCanceled=1`;
+      const res = await fetch(`${API_BASE}/api/requests/${id}/tip-checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ successUrl, cancelUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Unable to create payment session");
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Payment could not be started.");
+    }
+  };
+
+  const verifyTipStatus = async (requestId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/requests/${requestId}/tip-status`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not verify payment");
+      await loadRequests();
+      if (data.status === "paid") {
+        alert("Thank you! Your Rs 500 tip has been paid successfully.");
+      } else {
+        alert("Payment is still processing. Please refresh after a few seconds.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to verify payment.");
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "rescuer") {
       loadRequests();
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tipSuccess = params.get("tipSuccess");
+    const requestId = params.get("requestId");
+    const tipCanceled = params.get("tipCanceled");
+    if (tipSuccess === "1" && requestId) {
+      verifyTipStatus(requestId);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (tipCanceled === "1") {
+      alert("Tip payment was canceled.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const navItems = [
+    { key: "landing", label: "Landing" },
+    { key: "user", label: "Report Rescue" },
+    { key: "rescuer", label: "Rescuer Dashboard" },
+    { key: "contact", label: "Support" },
+  ];
+
+  const inputClass =
+    "w-full rounded-xl border border-cyan-100 bg-white/95 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
+  const primaryBtn =
+    "rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-300/40 transition hover:-translate-y-0.5";
+  const subtleBtn =
+    "rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100";
+
   return (
-    <div className="app">
-      <header className="hero">
-        <h1>Animal Rescue Network</h1>
-        <p>Connect caring people with local rescuers to save animals faster.</p>
-        <div className="tabs">
-          <button
-            className={activeTab === "user" ? "tab active" : "tab"}
-            onClick={() => setActiveTab("user")}
-          >
-            I found an animal
-          </button>
-          <button
-            className={activeTab === "rescuer" ? "tab active" : "tab"}
-            onClick={() => setActiveTab("rescuer")}
-          >
-            I am a rescuer
-          </button>
-          <button
-            className={activeTab === "contact" ? "tab active" : "tab"}
-            onClick={() => setActiveTab("contact")}
-          >
-            Contact support
-          </button>
-          <button
-            className={activeTab === "rescued" ? "tab active" : "tab"}
-            onClick={() => setActiveTab("rescued")}
-          >
-            Rescued animals
-          </button>
-          <button
-            className={activeTab === "government" ? "tab active" : "tab"}
-            onClick={() => setActiveTab("government")}
-          >
-            Government help
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-emerald-50 text-slate-800">
+      <header className="sticky top-0 z-20 border-b border-white/70 bg-white/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3">
+          <div>
+            <p className="text-lg font-bold text-slate-900">Animal Rescue Network</p>
+            <p className="text-xs text-slate-500">Help faster. Rescue smarter.</p>
+          </div>
+          <nav className="flex flex-wrap gap-2 rounded-full border border-cyan-100 bg-white/80 p-1 shadow-sm">
+            {navItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  activeTab === item.key
+                    ? "bg-gradient-to-r from-cyan-500 to-emerald-500 text-white shadow-md"
+                    : "text-slate-600 hover:bg-cyan-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
         </div>
       </header>
 
-      <main className="content">
-        {activeTab === "user" ? (
-          <section className="card">
-            <h2>Report an animal in need</h2>
-            <p className="subtitle">
-              Share a few details. We will notify all registered rescuers near
-              you.
-            </p>
-            <form className="form" onSubmit={handleUserSubmit}>
-              <div className="field">
-                <label>Type of animal</label>
-                <input
-                  name="petType"
-                  placeholder="Dog, Cat, Bird, etc."
-                  required
-                />
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+        {activeTab === "landing" && (
+          <section className="space-y-8">
+            <div className="grid gap-6 rounded-3xl bg-white/90 p-8 shadow-xl shadow-cyan-100/60 md:grid-cols-2">
+              <div className="space-y-5">
+                <p className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  Save lives with one click
+                </p>
+                <h1 className="text-4xl font-extrabold leading-tight text-slate-900">
+                  Caring for every paw, wing, and tail.
+                </h1>
+                <p className="text-slate-600">
+                  Report injured animals instantly, connect with nearby rescuers, and
+                  track rescue progress in real time.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button className={primaryBtn} onClick={() => setActiveTab("user")}>
+                    Report an animal
+                  </button>
+                  <button
+                    className="rounded-full border border-cyan-300 px-6 py-2.5 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
+                    onClick={() => setActiveTab("rescuer")}
+                  >
+                    Join rescuers
+                  </button>
+                </div>
               </div>
-              <div className="field">
-                <label>Description</label>
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-400 to-emerald-400 p-6 text-white">
+                <div className="animate-float absolute right-4 top-4 text-6xl">🐾</div>
+                <div className="animate-pulse-soft absolute bottom-4 left-4 text-5xl">🕊️</div>
+                <p className="text-sm font-semibold uppercase tracking-widest text-white/80">
+                  Rescue Impact
+                </p>
+                <div className="mt-8 space-y-3">
+                  <p className="text-4xl font-extrabold">24/7</p>
+                  <p className="text-white/90">Emergency coordination support available</p>
+                  <div className="rounded-xl bg-white/20 p-3 text-sm backdrop-blur-sm">
+                    Every report automatically includes geolocation and optional photos.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {rescuedAnimals.map((animal) => (
+                <article
+                  key={animal.name}
+                  className="overflow-hidden rounded-2xl border border-cyan-100 bg-white shadow-md transition hover:-translate-y-1"
+                >
+                  <img src={animal.image} alt={animal.name} className="h-44 w-full object-cover" />
+                  <div className="p-4">
+                    <p className="font-semibold text-slate-800">{animal.name}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="rounded-2xl border border-emerald-100 bg-white p-6">
+              <h2 className="text-xl font-bold text-slate-900">Emergency help numbers</h2>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {governmentHelp.map((item) => (
+                  <div key={item.title} className="rounded-xl bg-emerald-50 p-4">
+                    <p className="font-semibold text-emerald-900">{item.title}</p>
+                    <p className="text-sm text-emerald-700">{item.value}</p>
+                    <p className="mt-1 text-xs text-emerald-700/80">{item.details}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "user" && (
+          <section className="rounded-3xl bg-white p-6 shadow-xl shadow-cyan-100/60">
+            <h2 className="text-2xl font-bold text-slate-900">Report an animal in need</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Fill in details and we will notify nearby rescuers quickly.
+            </p>
+            <form className="mt-6 space-y-4" onSubmit={handleUserSubmit}>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Type of animal</label>
+                <input className={inputClass} name="petType" placeholder="Dog, Cat, Bird..." required />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
                 <textarea
+                  className={inputClass}
                   name="description"
                   placeholder="Injuries, behavior, surroundings..."
                   rows="3"
                   required
                 />
               </div>
-              <div className="field-row">
-                <div className="field">
-                  <label>Your phone number</label>
-                  <input
-                    name="userPhone"
-                    type="tel"
-                    placeholder="+91..."
-                    required
-                  />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Your phone number</label>
+                  <input className={inputClass} name="userPhone" type="tel" placeholder="+91..." required />
                 </div>
-                <div className="field">
-                  <label>Your email (for updates)</label>
-                  <input
-                    name="userEmail"
-                    type="email"
-                    placeholder="you@example.com"
-                  />
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Your email (optional)</label>
+                  <input className={inputClass} name="userEmail" type="email" placeholder="you@example.com" />
                 </div>
               </div>
-              <div className="field">
-                <label>Photo of the animal (optional)</label>
-                <input name="image" type="file" accept="image/*" />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Photo of the animal (optional)
+                </label>
+                <input className={inputClass} name="image" type="file" accept="image/*" />
               </div>
-              <div className="field">
-                <label>Location</label>
-                <div className="location-row">
-                  {loadingLocation ? (
-                    <span>Detecting your location...</span>
-                  ) : location.lat && location.lng ? (
-                    <span>
-                      {location.address
-                        ? location.address
-                        : `Lat: ${
-                            location.lat.toFixed?.(4) || location.lat
-                          }, Lng: ${location.lng.toFixed?.(4) || location.lng}`}
-                    </span>
-                  ) : (
-                    <span className="warning">
-                      Location not available. Please allow location access in
-                      your browser.
-                    </span>
-                  )}
-                </div>
+              <div className="rounded-xl bg-cyan-50 p-3 text-sm text-cyan-700">
+                {loadingLocation ? (
+                  <span>Detecting your location...</span>
+                ) : location.lat && location.lng ? (
+                  <span>
+                    {location.address
+                      ? location.address
+                      : `Lat: ${location.lat.toFixed?.(4) || location.lat}, Lng: ${
+                          location.lng.toFixed?.(4) || location.lng
+                        }`}
+                  </span>
+                ) : (
+                  <span className="text-amber-600">
+                    Location not available. Please allow location access in browser.
+                  </span>
+                )}
               </div>
-              <button type="submit" className="primary-btn">
+              <button type="submit" className={primaryBtn}>
                 Send rescue request
               </button>
             </form>
           </section>
-        ) : activeTab === "rescuer" ? (
-          <section className="rescuer-layout">
-            <div className="card">
-              <h2>Join as a rescuer</h2>
-              <p className="subtitle">
-                Register once to start receiving email alerts when someone
-                nearby needs help.
+        )}
+
+        {activeTab === "rescuer" && (
+          <section className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+            <div className="rounded-3xl bg-white p-6 shadow-xl shadow-cyan-100/60">
+              <h2 className="text-2xl font-bold text-slate-900">Join as a rescuer</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Register once to get rescue alerts in your area.
               </p>
-              <form className="form" onSubmit={handleRescuerRegister}>
-                <div className="field">
-                  <label>Full name</label>
-                  <input name="name" placeholder="Your name" required />
+              <form className="mt-6 space-y-4" onSubmit={handleRescuerRegister}>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Full name</label>
+                  <input className={inputClass} name="name" placeholder="Your name" required />
                 </div>
-                <div className="field-row">
-                  <div className="field">
-                    <label>Phone number</label>
-                    <input name="phone" placeholder="+91..." required />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Phone number</label>
+                    <input className={inputClass} name="phone" placeholder="+91..." required />
                   </div>
-                  <div className="field">
-                    <label>NGO (optional)</label>
-                    <input
-                      name="ngoName"
-                      placeholder="NGO you are associated with"
-                    />
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">NGO (optional)</label>
+                    <input className={inputClass} name="ngoName" placeholder="Associated NGO" />
                   </div>
                 </div>
-                <div className="field">
-                  <label>Email for alerts</label>
-                  <input
-                    name="email"
-                    type="email"
-                    placeholder="you@ngo.org"
-                    required
-                  />
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Email for alerts</label>
+                  <input className={inputClass} name="email" type="email" placeholder="you@ngo.org" required />
                 </div>
-                <button type="submit" className="primary-btn">
+                <button type="submit" className={primaryBtn}>
                   Register as rescuer
                 </button>
               </form>
             </div>
 
-            <div className="card">
-              <div className="card-header-row">
-                <h2>Open rescue requests</h2>
-                <button className="ghost-btn" onClick={loadRequests}>
+            <div className="rounded-3xl bg-white p-6 shadow-xl shadow-cyan-100/60">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-slate-900">Open rescue requests</h2>
+                <button
+                  className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  onClick={loadRequests}
+                >
                   Refresh
                 </button>
               </div>
               {requests.length === 0 ? (
-                <p className="subtitle">No rescue requests yet.</p>
+                <p className="mt-4 text-sm text-slate-500">No rescue requests yet.</p>
               ) : (
-                <div className="request-list">
+                <div className="mt-4 max-h-[34rem] space-y-3 overflow-auto pr-1">
                   {requests.map((r) => (
-                    <article key={r._id} className={`request ${r.status}`}>
-                      <div className="request-main">
-                        <h3>{r.petType}</h3>
-                        <p>{r.description}</p>
-                        <p className="meta">
-                          <span>Status: {r.status}</span>
-                          {r.createdAt && (
-                            <span>
-                              Reported:{" "}
-                              {new Date(r.createdAt).toLocaleString(undefined, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
-                            </span>
+                    <article
+                      key={r._id}
+                      className={`rounded-2xl border p-4 transition ${
+                        r.status === "rescued"
+                          ? "border-emerald-200 bg-emerald-50"
+                          : r.status === "accepted"
+                          ? "border-cyan-200 bg-cyan-50"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <div className="grid gap-4 md:grid-cols-[1fr_120px]">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900">{r.petType}</h3>
+                          <p className="text-sm text-slate-700">{r.description}</p>
+                          <p className="mt-2 text-xs text-slate-500">Status: {r.status}</p>
+                          <p className="mt-1 text-xs text-slate-500">Phone: {r.userPhone}</p>
+                          {r.rescuerCode && (
+                            <p className="mt-1 text-xs text-slate-500">Rescuer ID: {r.rescuerCode}</p>
                           )}
-                        </p>
-                        <p className="meta">
-                          <span>Phone: {r.userPhone}</span>
-                          {r.rescuerCode && <span>Rescuer ID: {r.rescuerCode}</span>}
                           {r.location && (
-                            <>
-                              <span>
-                                Location:{" "}
-                                {r.location.address ||
-                                  `${r.location.lat?.toFixed?.(
-                                    4
-                                  )}, ${r.location.lng?.toFixed?.(4)}`}
-                              </span>
-                              {r.location.lat && r.location.lng && (
-                                <a
-                                  href={`https://www.google.com/maps?q=${r.location.lat},${r.location.lng}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Open in Google Maps
-                                </a>
-                              )}
-                            </>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Location:{" "}
+                              {r.location.address ||
+                                `${r.location.lat?.toFixed?.(4)}, ${r.location.lng?.toFixed?.(4)}`}
+                            </p>
                           )}
-                        </p>
-                        {r.equipmentSuggestion && (
-                          <p className="meta equipment-note">
-                            Suggested rescue equipment: {r.equipmentSuggestion}
-                          </p>
-                        )}
-                        {r.diseasePrediction && (
-                          <p className="meta equipment-note">
-                            ML disease estimate: {r.diseasePrediction}
-                          </p>
+                          {r.equipmentSuggestion && (
+                            <p className="mt-1 text-xs font-medium text-emerald-700">
+                              Suggested equipment: {r.equipmentSuggestion}
+                            </p>
+                          )}
+                          {r.diseasePrediction && (
+                            <p className="mt-1 text-xs font-medium text-emerald-700">
+                              ML disease estimate: {r.diseasePrediction}
+                            </p>
+                          )}
+                        </div>
+                        {r.imageUrl && (
+                          <img
+                            className="h-[110px] w-[110px] rounded-xl object-cover"
+                            src={`${API_BASE}${r.imageUrl}`}
+                            alt={r.petType}
+                          />
                         )}
                       </div>
-                      {r.imageUrl && (
-                        <img
-                          className="request-image"
-                          src={`${API_BASE}${r.imageUrl}`}
-                          alt={r.petType}
-                        />
-                      )}
-                      <div className="actions">
+                      <div className="mt-3 flex flex-wrap justify-end gap-2">
                         {r.status === "pending" && (
-                          <button
-                            className="primary-btn small"
-                            onClick={() => handleAccept(r._id)}
-                          >
+                          <button className={primaryBtn} onClick={() => handleAccept(r._id)}>
                             Accept rescue
                           </button>
                         )}
                         {r.status === "accepted" && (
                           <>
-                            <button
-                              className="secondary-btn small"
-                              onClick={() => handleMarkRescued(r._id)}
-                            >
+                            <button className={subtleBtn} onClick={() => handleMarkRescued(r._id)}>
                               Mark as rescued
                             </button>
                             {r.location?.lat && r.location?.lng && (
                               <a
-                                className="secondary-btn small track-link"
+                                className={subtleBtn}
                                 href={`https://www.google.com/maps/dir/?api=1&destination=${r.location.lat},${r.location.lng}`}
                                 target="_blank"
                                 rel="noreferrer"
                               >
-                                Track rescue route
+                                Track route
                               </a>
                             )}
                           </>
                         )}
+                        {r.status === "rescued" &&
+                          (r.tipPaymentStatus === "paid" ? (
+                            <span className="rounded-full border border-emerald-400 bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700">
+                              Rs 500 tip paid
+                            </span>
+                          ) : (
+                            <button className={subtleBtn} onClick={() => handlePayRescuer(r._id)}>
+                              Pay rescuer Rs 500
+                            </button>
+                          ))}
                       </div>
                     </article>
                   ))}
@@ -487,65 +583,37 @@ function App() {
               )}
             </div>
           </section>
-        ) : activeTab === "contact" ? (
-          <section className="card">
-            <h2>Contact our support team</h2>
-            <p className="subtitle">
-              Reach out to any of the coordinators below for emergency help,
-              partnerships, or general questions.
+        )}
+
+        {activeTab === "contact" && (
+          <section className="rounded-3xl bg-white p-6 shadow-xl shadow-cyan-100/60">
+            <h2 className="text-2xl font-bold text-slate-900">Contact our support team</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Reach out for rescue coordination, partnerships, and emergency support.
             </p>
-            <div className="support-grid">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {supportTeam.map((member) => (
-                <div className="support-card" key={member.email}>
-                  <img src={member.image} alt={member.name} className="support-img" />
-                  <h3>{member.name}</h3>
-                  <p className="support-role">{member.role}</p>
-                  <p className="support-line">
-                    Phone: <a href={`tel:${member.phone.replace(/\s/g, "")}`}>{member.phone}</a>
+                <article
+                  className="group rounded-2xl border border-cyan-100 bg-cyan-50/50 p-4 transition hover:-translate-y-1 hover:shadow-md"
+                  key={member.email}
+                >
+                  <img
+                    src={member.image}
+                    alt={member.name}
+                    className="h-40 w-full rounded-xl object-cover"
+                  />
+                  <h3 className="mt-3 font-bold text-slate-900">{member.name}</h3>
+                  <p className="text-sm text-slate-600">{member.role}</p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    <a className="text-cyan-700 hover:underline" href={`tel:${member.phone.replace(/\s/g, "")}`}>
+                      {member.phone}
+                    </a>
                   </p>
-                  <p className="support-line">
-                    Email: <a href={`mailto:${member.email}`}>{member.email}</a>
+                  <p className="text-sm">
+                    <a className="text-cyan-700 hover:underline" href={`mailto:${member.email}`}>
+                      {member.email}
+                    </a>
                   </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : activeTab === "rescued" ? (
-          <section className="card">
-            <h2>Animals we rescued</h2>
-            <p className="subtitle">
-              A few successful rescues from our local volunteer team.
-            </p>
-            <div className="support-grid">
-              {rescuedAnimals.map((animal) => (
-                <article className="support-card rescued-card" key={animal.name}>
-                  <img src={animal.image} alt={animal.name} className="support-img" />
-                  <h3>{animal.name}</h3>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : (
-          <section className="card">
-            <h2>Government and emergency support</h2>
-            <p className="subtitle">
-              Use these contacts for immediate help, legal guidance, and animal
-              welfare schemes.
-            </p>
-            <div className="support-grid">
-              {governmentHelp.map((item) => (
-                <article className="support-card" key={item.title}>
-                  <h3>{item.title}</h3>
-                  {item.value.startsWith("http") ? (
-                    <p className="support-line">
-                      <a href={item.value} target="_blank" rel="noreferrer">
-                        {item.value}
-                      </a>
-                    </p>
-                  ) : (
-                    <p className="support-line">{item.value}</p>
-                  )}
-                  <p className="support-role">{item.details}</p>
                 </article>
               ))}
             </div>
@@ -553,8 +621,8 @@ function App() {
         )}
       </main>
 
-      <footer className="footer">
-        <span>Built with ❤️ to help animals in need.</span>
+      <footer className="py-6 text-center text-sm text-slate-500">
+        Built with care to protect animals in need.
       </footer>
     </div>
   );

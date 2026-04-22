@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs/promises');
 const mongoose = require('mongoose');
+const Stripe = require('stripe');
 const RescueRequest = require('../models/RescueRequest');
 const Rescuer = require('../models/Rescuer');
 const { sendEmail } = require('../utils/mailer');
@@ -23,6 +24,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || 'Salesforce/blip-image-captioning-base';
+const HF_PREDICT_API_URL =
+  process.env.HF_PREDICT_API_URL || 'https://prince200603-animal-injury-detector.hf.space/predict';
+const stripe =
+  process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.trim()
+    ? new Stripe(process.env.STRIPE_SECRET_KEY)
+    : null;
 
 const getImageCaptionFromHF = async (imagePath) => {
   const token = process.env.HF_API_TOKEN;
@@ -99,6 +106,56 @@ const inferMedicalInsights = ({ petType = '', description = '', caption = '' }) 
   };
 };
 
+const extractTopResponsePairs = (payload) => {
+  if (!payload) return [];
+
+  let source = payload;
+  if (Array.isArray(source)) {
+    source = source.find((item) => item && typeof item === 'object') || {};
+  }
+  if (!source || typeof source !== 'object') return [];
+
+  return Object.entries(source)
+    .slice(0, 3)
+    .map(([key, value]) => {
+      let formattedValue = value;
+      if (value && typeof value === 'object') {
+        formattedValue = JSON.stringify(value);
+      }
+      return {
+        key: String(key),
+        value: String(formattedValue),
+      };
+    });
+};
+
+const getTopPredictionsFromDetector = async (imagePath) => {
+  if (!imagePath) return [];
+  try {
+    const imageBuffer = await fs.readFile(imagePath);
+    const form = new FormData();
+    const fileBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
+    form.append('file', fileBlob, path.basename(imagePath));
+
+    const response = await fetch(HF_PREDICT_API_URL, {
+      method: 'POST',
+      body: form,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('HF predict endpoint error:', errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    return extractTopResponsePairs(data);
+  } catch (err) {
+    console.error('HF predict call failed:', err.message);
+    return [];
+  }
+};
+
 // Create a new rescue request (user flow)
 router.post('/', upload.single('image'), async (req, res) => {
   try {
@@ -111,6 +168,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     const imagePath = req.file ? path.join(__dirname, '../../uploads', req.file.filename) : '';
     const mlCaption = await getImageCaptionFromHF(imagePath);
+    const topResponsePairs = await getTopPredictionsFromDetector(imagePath);
     const insights = inferMedicalInsights({ petType, description, caption: mlCaption });
 
     const request = await RescueRequest.create({
@@ -134,6 +192,14 @@ router.post('/', upload.single('image'), async (req, res) => {
     const emails = rescuers.map((r) => r.email).filter(Boolean);
 
     const subject = `New Animal Rescue Request - ${petType}`;
+    const predictionHtml = topResponsePairs.length
+      ? `
+      
+      <ol>
+        ${topResponsePairs.map((item) => `<li>${item.key}: ${item.value}</li>`).join('')}
+      </ol>
+    `
+      : `<p><strong>Top 3 key-value pairs from injury detector API response:</strong> No response data available.</p>`;
     const html = `
       <h2>New Animal Needs Help</h2>
       <p><strong>Type:</strong> ${petType}</p>
@@ -142,11 +208,20 @@ router.post('/', upload.single('image'), async (req, res) => {
       <p><strong>Contact Phone:</strong> ${userPhone}</p>
       <p><strong>ML disease estimate:</strong> ${insights.diseasePrediction}</p>
       <p><strong>Suggested equipment:</strong> ${insights.equipmentSuggestion}</p>
+      ${predictionHtml}
       <p>You can accept this rescue from your rescuer dashboard.</p>
     `;
+    const attachments = req.file
+      ? [
+          {
+            filename: req.file.originalname || req.file.filename,
+            path: imagePath,
+          },
+        ]
+      : [];
 
     if (emails.length) {
-      await sendEmail(emails.join(','), subject, html);
+      await sendEmail(emails.join(','), subject, html, { attachments });
     }
 
     res.status(201).json(request);
@@ -223,6 +298,87 @@ router.post('/:id/rescued', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create Stripe checkout session for optional rescuer tip (Rs 500)
+router.post('/:id/tip-checkout-session', async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(500).json({ message: 'Stripe is not configured on server.' });
+    }
+
+    const request = await RescueRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    if (request.status !== 'rescued') {
+      return res.status(400).json({ message: 'Tip can be paid only after rescue completion.' });
+    }
+
+    const { successUrl, cancelUrl } = req.body || {};
+    if (!successUrl || !cancelUrl) {
+      return res.status(400).json({ message: 'successUrl and cancelUrl are required.' });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'inr',
+            product_data: {
+              name: 'Rescuer Appreciation Tip',
+              description: `Optional Rs 500 tip for rescuing ${request.petType}`,
+            },
+            unit_amount: 50000,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        requestId: String(request._id),
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+
+    request.tipPaymentStatus = 'pending';
+    request.tipCheckoutSessionId = session.id;
+    await request.save();
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not create payment session.' });
+  }
+});
+
+// Verify payment completion status using Stripe session id
+router.get('/:id/tip-status', async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(500).json({ message: 'Stripe is not configured on server.' });
+    }
+    const request = await RescueRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    if (!request.tipCheckoutSessionId) {
+      return res.json({ status: request.tipPaymentStatus || 'not_initiated' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(request.tipCheckoutSessionId);
+    if (session.payment_status === 'paid') {
+      request.tipPaymentStatus = 'paid';
+      await request.save();
+    }
+
+    res.json({ status: request.tipPaymentStatus, paymentStatus: session.payment_status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not verify payment status.' });
   }
 });
 
